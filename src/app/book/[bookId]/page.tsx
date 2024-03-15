@@ -103,6 +103,9 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
         const prevSectionId = sectionIds[currentSection - 1];
         const nextSectionId = sectionIds[currentSection + 1];
   
+        if(!allSections.some((section) => section.id === sectionIds[currentSection])){
+          loadSection(sectionIds[currentSection]);
+        }
         if (prevSectionId && !allSections.some((section) => section.id === prevSectionId)) {
           loadSection(prevSectionId);
         }
@@ -140,6 +143,7 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
         </p>
       ));
     };
+
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -190,7 +194,7 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
                     <div className="text-gray-700">{convertToParagraphs(section.content)}</div>
                   </div>
                   <div className="md:w-1/2">
-                    <h3 className="text-xl font-bold mb-4">Fixed Translation</h3>
+                    <h3 className="text-xl font-bold mb-4">Enhanced Rewrite</h3>
                     <div className="text-gray-700">
                       {convertToParagraphs(String(section.fixedTranslation) || 'Translation not available')}
                     </div>
