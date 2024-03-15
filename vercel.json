@@ -1,0 +1,8 @@
+{
+    "functions": {
+      "api/fixTranslation/*.js": {
+        "memory": 1500,
+        "maxDuration": 45
+      }
+    }
+  }
