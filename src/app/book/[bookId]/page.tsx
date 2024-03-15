@@ -58,21 +58,17 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
       const response = await fetch(`/api/getSection?sectionId=${sectionId}`);
       const sectionData:(BookSection & { fixedTranslation: FixedTranslation | null }) = await response.json();
       if(!allSections.some((section) => section.id === sectionData.id)){
-        setAllSections([...allSections, sectionData]);
+        setAllSections([...allSections, sectionData].sort((a, b) => a.sectionNumber - b.sectionNumber));
       }
     };
   
     const getVisibleSections = () => {
       if (currentSection === null) return [];
-  
-      const visibleSections = [allSections[currentSection]] ? [allSections[currentSection]] : [];
-      if (currentSection > 0) {
-        visibleSections.unshift(allSections[currentSection - 1]);
-      }
-      if (currentSection < allSections.length - 1) {
-        visibleSections.push(allSections[currentSection + 1]);
-      }
-      return visibleSections.filter((section) => section);
+      const start = currentSection - 10 < 0 ? 0 : currentSection - 10;
+
+
+      const visibleSections = allSections.slice(start, start + 12);
+      return visibleSections;
     };
   
     const handleScroll = () => {
