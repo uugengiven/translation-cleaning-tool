@@ -2,6 +2,14 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from './database';
 
+export type BookForm = {
+  id: number;
+  title: string;
+  author: string;
+  description: string;
+  info: string;
+}
+
 class Book extends Model {
   public id!: number;
   public title!: string;

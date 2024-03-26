@@ -5,9 +5,12 @@ import path from 'path';
 import { Book, BookSection } from '@/data/models';
 
 const segmentText = (text: string, sectionBreakPatterns: string[]): string[] => {
-  const pageBreakRegex = new RegExp(`(${sectionBreakPatterns.join('|')})`, 'g');
-  const blocks = text.split(pageBreakRegex);
-
+  let blocks:string[] = [text];
+  if(sectionBreakPatterns.length > 0)
+  {
+    const pageBreakRegex = new RegExp(`(${sectionBreakPatterns.join('|')})`, 'g');
+    const blocks = text.split(pageBreakRegex);
+  }
   const outputBlocks: string[] = [];
 
   for (const block of blocks) {
@@ -63,6 +66,11 @@ const getWordCount = (text: string): number => {
 };
 
 export async function POST(request: NextRequest) {
+  const isEditable = process.env.NEXT_PUBLIC_ALLOW_EDIT === 'true';
+  if(!isEditable) {
+    return NextResponse.json({ error: 'Editing is disabled' }, { status: 403 });
+  }
+
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
   const sectionBreakPatterns = formData.get('sectionBreakPatterns')?.toString().split(',') || [];
@@ -76,14 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   const fileContent = await file.text();
-
-
-  const uploadDirectory = path.join(process.cwd(), 'public', 'uploads');
-  await fs.mkdir(uploadDirectory, { recursive: true });
-
-  const filePath = path.join(uploadDirectory, file.name);
-  await fs.writeFile(filePath, fileContent);
-  
+ 
   const segments=segmentText(fileContent, sectionBreakPatterns);
 
   // Create a new book record

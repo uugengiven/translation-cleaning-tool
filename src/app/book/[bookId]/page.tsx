@@ -3,6 +3,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { BookSection, FixedTranslation, Book } from '@/data/models';
+import { createEditor } from 'slate';
+import { Slate, Editable, withReact } from 'slate-react';
 
 type BookPageProps = {
   params: {
@@ -18,6 +20,7 @@ type BookPageBook = {
   info: string;
 };
 
+
 const BookPage: React.FC<BookPageProps> = ({ params }) => {
     const [sectionIds, setSectionIds] = useState<Number[]>([]);
     const [currentSection, setCurrentSection] = useState<number | null>(null);
@@ -29,10 +32,15 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
       info: 'Book Info',
     });
     const [isLoading, setIsLoading] = useState(true);
-    const [allSections, setAllSections] = useState<(BookSection & { fixedTranslation: FixedTranslation | null })[]>([]);
+    const [allSections, setAllSections] = useState<(BookSection & { fixedTranslation: string | null })[]>([]);
     const [isFixingTranslation, setIsFixingTranslation] = useState<Record<string, boolean>>({});
+    const [editingSectionId, setEditingSectionId] = useState<number | null>(null);
+    const [editedTranslation, setEditedTranslation] = useState<string>('');
+    const [editor] = useState(() => withReact(createEditor()));
+    const enableEdit = (process.env.NEXT_PUBLIC_ALLOW_EDIT === 'true');
+
     const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
-  
+
     useEffect(() => {
       const fetchSectionIds = async () => {
         setIsLoading(true);
@@ -44,7 +52,7 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
   
       const fetchBook = async () => {
         setIsLoading(true);
-        const response = await fetch(`/api/Book?bookId=${params.bookId}`);
+        const response = await fetch(`/api/books/${params.bookId}`);
         const bookData = await response.json();
         setBook(bookData);
         setIsLoading(false);
@@ -56,7 +64,7 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
   
     const loadSection = async (sectionId: Number) => {
       const response = await fetch(`/api/getSection?sectionId=${sectionId}`);
-      const sectionData:(BookSection & { fixedTranslation: FixedTranslation | null }) = await response.json();
+      const sectionData:(BookSection & { fixedTranslation: string | null }) = await response.json();
       if(!allSections.some((section) => section.id === sectionData.id)){
         setAllSections([...allSections, sectionData].sort((a, b) => a.sectionNumber - b.sectionNumber));
       }
@@ -132,6 +140,40 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
       setIsFixingTranslation((prevState) => ({ ...prevState, [sectionId]: false }));
     };
   
+    const handleEditTranslation = (sectionId: number) => {
+      editor.selection = null;
+      setEditingSectionId(sectionId);
+      const index = allSections.findIndex((section) => section.id === sectionId);
+      const translation = allSections[index].fixedTranslation || '';
+      setEditedTranslation(translation);
+    };
+
+    const handleSaveTranslation = async () => {
+      if (editingSectionId) {
+        const plainText = editedTranslation.replace(/<[^>]+>/g, '');
+        const response = await fetch(`/api/saveTranslation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sectionId: editingSectionId, translation: plainText }),
+        });
+    
+        if (response.ok) {
+          const tempSections = [...allSections];
+          const sectionIndex = tempSections.findIndex((section) => section.id === editingSectionId);
+          tempSections[sectionIndex].fixedTranslation = plainText;
+    
+          setAllSections(tempSections);
+        }
+      }
+      setEditingSectionId(null);
+      setEditedTranslation('');
+    };
+  
+    const handleCancelEdit = () => {
+      setEditingSectionId(null);
+      setEditedTranslation('');
+    };
+
     const convertToParagraphs = (text: string) => {
       return text.split('\n').map((paragraph, index) => (
         <p key={index} className="mb-4">
@@ -140,6 +182,12 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
       ));
     };
 
+    const convertToJSON = (text: string) => {
+      console.log(`--${text}--`);
+      return text.split('\n').map((paragraph) => {
+        return { type: 'paragraph', children: [{ text: paragraph }] };
+      });
+    }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -171,11 +219,9 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
                   <div className="flex justify-between items-center mb-2">
                     <h2 className="text-lg font-semibold">Section {section.sectionNumber}</h2>
                     <button
-                      className={`flex items-center px-4 py-2 rounded-md ${
-                        isFixingTranslation[section.id] ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-200 hover:bg-gray-300'
-                      } text-gray-600`}
+                      className="flex items-center px-4 py-2 rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed bg-gray-200 hover:bg-gray-300 text-gray-600"
                       onClick={() => handleFixTranslation(String(section.id))}
-                      disabled={isFixingTranslation[section.id]}
+                      disabled={enableEdit ? isFixingTranslation[section.id] : true}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="w-5 h-5 mr-2">
                         <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM184 336c-23.1 0-41 11.1-46.3 14.8c-1.1 .8-2.4 1.2-3.7 1.2c-3.3 0-5.9-2.7-5.9-5.9V185.3c0-5.8 3.1-11.1 8.3-13.5c10.4-4.7 29.1-11.9 47.7-11.9s37.2 7.1 47.7 11.9c5.2 2.4 8.3 7.7 8.3 13.5V346.1c0 3.3-2.7 5.9-5.9 5.9c-1.3 0-2.6-.4-3.7-1.2C225 347.1 207.1 336 184 336zm144 0c-23.1 0-41 11.1-46.3 14.8c-1.1 .8-2.4 1.2-3.7 1.2c-3.3 0-5.9-2.7-5.9-5.9V185.3c0-5.8 3.1-11.1 8.3-13.5c10.4-4.7 29.1-11.9 47.7-11.9s37.2 7.1 47.7 11.9c5.2 2.4 8.3 7.7 8.3 13.5V346.1c0 3.3-2.7 5.9-5.9 5.9c-1.3 0-2.6-.4-3.7-1.2C369 347.1 351.1 336 328 336z" />
@@ -190,10 +236,28 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
                     <div className="text-gray-700">{convertToParagraphs(section.content)}</div>
                   </div>
                   <div className="md:w-1/2">
-                    <h3 className="text-xl font-bold mb-4">Enhanced Rewrite</h3>
-                    <div className="text-gray-700">
-                      {convertToParagraphs(String(section.fixedTranslation) || 'Translation not available')}
-                    </div>
+                    <h3 className="text-xl font-bold mb-4 pl-2">Enhanced Rewrite</h3>
+                    {editingSectionId === section.id ? (
+                      <div>
+                        <Slate editor={editor} initialValue={convertToJSON(section.fixedTranslation || '')}>
+                          <Editable
+                            renderElement={(props) => <div {...props.attributes}>{props.children}</div>}
+                            renderLeaf={(props) => <p className="mb-4" {...props.attributes}>{props.children}</p>}
+                            placeholder="Enter your translation here..."
+                            spellCheck
+                            autoFocus
+                            className="text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded-sm p-2" 
+                          />
+                        </Slate>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => handleEditTranslation(section.id)}
+                        className="cursor-pointer text-gray-700"
+                      >
+                        {convertToParagraphs(String(section.fixedTranslation || 'Translation not available'))}
+                      </div>
+                )}
                   </div>
                 </div>
               </div>

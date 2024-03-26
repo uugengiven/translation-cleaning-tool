@@ -9,6 +9,10 @@ import { MessageParam, Message, ContentBlock } from '@anthropic-ai/sdk/resources
 const anthropic = new Anthropic();
 
 export async function POST(request: NextRequest) {
+  const isEditable = process.env.NEXT_PUBLIC_ALLOW_EDIT === 'true';
+  if(!isEditable) {
+    return NextResponse.json({ error: 'Editing is disabled' }, { status: 403 });
+  }
   const { sectionId } = await request.json();
 
   const currentSection = await BookSection.findByPk(sectionId, {
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   const translationContent = (messages[messages.length - 1].content[0] as ContentBlock).text.match(/<rewrite>.*<\/rewrite>/gms);
-  const content = translationContent?.[0].replace("<rewrite>", '').replace("</rewrite>", '');
+  const content = translationContent?.[0].replace("<rewrite>", '').replace("</rewrite>", '').trim();
 
   const fixedTranslation = await FixedTranslation.create({
     bookSectionId: currentSection.id,
