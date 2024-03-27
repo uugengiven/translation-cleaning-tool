@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { BookSection, FixedTranslation, Book } from '@/data/models';
-import { createEditor } from 'slate';
+import { createEditor, Node } from 'slate';
 import { Slate, Editable, withReact } from 'slate-react';
 
 type BookPageProps = {
@@ -37,6 +37,8 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
     const [editingSectionId, setEditingSectionId] = useState<number | null>(null);
     const [editedTranslation, setEditedTranslation] = useState<string>('');
     const [editor] = useState(() => withReact(createEditor()));
+    const [editorText, setEditorText] = useState<string>('');
+
     const enableEdit = (process.env.NEXT_PUBLIC_ALLOW_EDIT === 'true');
 
     const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -150,7 +152,7 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
 
     const handleSaveTranslation = async () => {
       if (editingSectionId) {
-        const plainText = editedTranslation.replace(/<[^>]+>/g, '');
+        const plainText = slateToString(editor.children);
         const response = await fetch(`/api/saveTranslation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -175,18 +177,23 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
     };
 
     const convertToParagraphs = (text: string) => {
-      return text.split('\n').map((paragraph, index) => (
-        <p key={index} className="mb-4">
-          {paragraph}
-        </p>
+      return text.split('\n').filter(line => line.length > 0).map((paragraph, index) => (
+        <div key={index}>
+          <p className="mb-4">
+            {paragraph}
+          </p>
+        </div>
       ));
     };
 
     const convertToJSON = (text: string) => {
-      console.log(`--${text}--`);
-      return text.split('\n').map((paragraph) => {
+      return text.split('\n').filter(line => line.length > 0).map((paragraph) => {
         return { type: 'paragraph', children: [{ text: paragraph }] };
       });
+    }
+
+    const slateToString = (value: any) => {
+      return value.map((node: any) => node.children.map((child: any) => Node.string(child)).join('')).join('\n');
     }
 
   return (
@@ -246,14 +253,29 @@ const BookPage: React.FC<BookPageProps> = ({ params }) => {
                             placeholder="Enter your translation here..."
                             spellCheck
                             autoFocus
-                            className="text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded-sm p-2" 
+                            className="text-gray-700 focus:outline-none focus:ring-2 focus:ring-slate-300 rounded-sm p-2"
                           />
                         </Slate>
+                        <div className="mt-2">
+                      <button
+                        onClick={handleSaveTranslation}
+                        disabled={!enableEdit}
+                        className="px-4 py-2 mr-2 rounded-md bg-blue-500 text-white disabled:bg-slate-600 disabled:cursor-not-allowed hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 rounded-md bg-gray-300 text-gray-700 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                       </div>
                     ) : (
                       <div
                         onClick={() => handleEditTranslation(section.id)}
-                        className="cursor-pointer text-gray-700"
+                        className="cursor-pointer text-gray-700 p-2"
                       >
                         {convertToParagraphs(String(section.fixedTranslation || 'Translation not available'))}
                       </div>
