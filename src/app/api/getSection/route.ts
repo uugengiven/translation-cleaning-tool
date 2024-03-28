@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Section not found' }, { status: 404 });
   }
 
-  const plainData:BookSection & {FixedTranslations:FixedTranslation[]}= {...section.get({ plain: true })};
+  const plainData:BookSection= {...section.get({ plain: true })};
 
   const sectionData = {
     ...plainData,

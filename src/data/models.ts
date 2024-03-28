@@ -55,7 +55,7 @@ class BookSection extends Model {
   public sectionNumber!: number;
   public content!: string;
   public book?: Book;
-  public fixedTranslations?: FixedTranslation[];
+  public FixedTranslations?: FixedTranslation[];
 }
 
 BookSection.init(

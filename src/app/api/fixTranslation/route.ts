@@ -1,9 +1,9 @@
 // app/api/fixTranslation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from "@anthropic-ai/sdk";
-import { BookSection, FixedTranslation } from '@/data/models';
+import { BookSection, FixedTranslation, Book } from '@/data/models';
 import { Op } from 'sequelize';
-import { SYSTEM_PROMPT, CHAIN, MODEL_MEDIUM } from '@/ai/consts';
+import { SYSTEM_PROMPT, CHAIN, MODEL_MEDIUM, SYSTEM_PROMPT_INSTRUCTIONS } from '@/ai/consts';
 import { MessageParam, Message, ContentBlock } from '@anthropic-ai/sdk/resources/messages.mjs';
 
 const anthropic = new Anthropic();
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
   }
   const { sectionId } = await request.json();
 
+
   const currentSection = await BookSection.findByPk(sectionId, {
     include: [FixedTranslation],
   });
@@ -23,21 +24,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Section not found' }, { status: 404 });
   }
 
+  const currentBook = await Book.findByPk(currentSection.bookId);
+  if(!currentBook) {
+    return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+  }
+
   const previousSection = await BookSection.findOne({
     where: {
       bookId: currentSection.bookId,
       sectionNumber: currentSection.sectionNumber - 1,
     },
-    include: [FixedTranslation],
+    include: FixedTranslation,
   });
 
     let messageContent = "";
 
 
   if (previousSection) {
-    const previousTranslation = previousSection.fixedTranslations?.find(
+    const previousTranslation = previousSection.FixedTranslations?.find(
       (translation) => translation.active
     );
+
+    console.log("previous section", previousSection);
+    console.log("previous translation", previousTranslation);
 
     messageContent = `<prev><original>${previousSection.content}</original><rewrite>${previousTranslation?.content || ''}</rewrite></prev><current><original>${currentSection.content}</original></current>`;
   } else {
@@ -46,8 +55,11 @@ export async function POST(request: NextRequest) {
 
   const messages: (MessageParam|Message)[] = [];
 
+  //return NextResponse.json({ message: 'Translation fixed successfully' });
+
   for(let i = 0; i < CHAIN.length; i++) {
-    const instruction = i === 0? messageContent + "\n" + CHAIN[i] : CHAIN[i];
+    const instruction = i === 0? messageContent + "\n\n" + CHAIN[i].replace("<<style>>", currentBook.description) : CHAIN[i].replace("<<style>>", currentBook.description);
+    console.log("instruction", instruction);
     console.log("adding instruction");
     messages.push({
       role: "user",
@@ -59,11 +71,13 @@ export async function POST(request: NextRequest) {
       ],
     });
 
+    const systemPrompt = SYSTEM_PROMPT + currentBook.info + "\n\n" + SYSTEM_PROMPT_INSTRUCTIONS;
+    console.log("system prompt", systemPrompt);
     const response = await anthropic.messages.create({
       model: MODEL_MEDIUM,
       max_tokens: 2001,
       temperature: 0.6,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages,
     });
 
