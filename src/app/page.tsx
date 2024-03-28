@@ -6,6 +6,14 @@ import { Book } from '@/data/models';
 const HomePage: React.FC = async () => {
   const books = await Book.findAll();
 
+  const bookImage = (id:number) => {
+    if(id === 5) return "/images/gatsby.webp";
+    if(id === 2) return "/images/book.webp";
+    if(id === 7) return "/images/greek.webp";
+    if(id === 8) return "/images/spanish.webp";
+    return "/images/book.webp";
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Hero Banner */}
@@ -30,7 +38,7 @@ const HomePage: React.FC = async () => {
             <Link key={book.id} href={`/book/${book.id}`}>
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <Image
-                  src="/images/book.webp"
+                  src={bookImage(book.id)}
                   alt="Book Image"
                   width={200}
                   height={300}
